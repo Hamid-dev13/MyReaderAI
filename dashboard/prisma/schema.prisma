@@ -1,0 +1,37 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle pour stocker les documents V3
+model V3Document {
+  id             String   @id @default(uuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  completionRate Float    @default(0) // Pourcentage de complétion du document
+  data           String // Stockage du JSON des données du V3
+
+  // Relations
+  uploadedFiles UploadedFile[]
+}
+
+// Modèle pour stocker les fichiers téléchargés
+model UploadedFile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  fileName  String
+  fileType  String
+  fileSize  Int
+  status    String   @default("processed") // processed, pending, error
+
+  // Relation avec le document V3
+  v3DocumentId String?
+  v3Document   V3Document? @relation(fields: [v3DocumentId], references: [id])
+}

@@ -31,6 +31,12 @@ export default function Navbar() {
                     >
                         Documents
                     </Link>
+                    <Link
+                        href="/dashboard/upload"
+                        className={`px-3 py-2 text-white rounded-md hover:bg-blue-700 transition-colors ${isActive('/dashboard/upload')}`}
+                    >
+                        Upload
+                    </Link>
                 </div>
             </div>
         </nav>
