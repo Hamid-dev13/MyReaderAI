@@ -21,17 +21,19 @@ export default function MissingInfoList({ data }: MissingInfoListProps) {
                     Aucune information manquante
                 </div>
             ) : (
-                <div className="divide-y divide-gray-100">
-                    {data.map((item) => (
-                        <div key={item.id} className="py-3">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="font-medium text-gray-900">{item.field}</h3>
-                                    <p className="text-gray-600 mt-1">{item.message}</p>
+                <div className="max-h-96 overflow-y-auto pr-1">
+                    <div className="divide-y divide-gray-100">
+                        {data.map((item) => (
+                            <div key={item.id} className="py-3">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="font-medium text-gray-900">{item.field}</h3>
+                                        <p className="text-gray-600 mt-1">{item.message}</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
