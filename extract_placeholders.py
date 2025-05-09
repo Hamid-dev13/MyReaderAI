@@ -1,4 +1,3 @@
-# Créer un fichier extract_placeholders.py
 import re
 from docx import Document
 import os
