@@ -92,8 +92,16 @@ export default function FileDropzone({
                     v3Document = newDocResponse.data;
                 }
 
+                // À ce stade, v3Document est garanti d'être défini
+                if (!v3Document) {
+                    throw new Error("Impossible d'obtenir un document V3 valide");
+                }
+
                 // Traiter le texte pour mettre à jour le V3
-                const processingResult = await processTextForV3(textExtractionResult.text, v3Document.data);
+                const processingResult = await processTextForV3(
+                    textExtractionResult.text,
+                    v3Document.data as unknown as Record<string, string>
+                );
 
                 if (!processingResult.success || !processingResult.data) {
                     throw new Error(processingResult.error || "Échec du traitement des données V3");
@@ -109,7 +117,7 @@ export default function FileDropzone({
                 // Mise à jour du document V3
                 const updateResponse = await V3Client.update(v3Document.id, updatedData);
 
-                if (!updateResponse.success) {
+                if (!updateResponse.success || !updateResponse.data) {
                     throw new Error(updateResponse.error || "Échec de la mise à jour du document V3");
                 }
 

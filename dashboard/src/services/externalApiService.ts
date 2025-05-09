@@ -1,5 +1,7 @@
-// Service API pour communiquer avec les API Routes qui relaient au backend Python
-const API_BASE_URL = '/api';
+// Service API pour communiquer avec le backend Python
+// Utilisation directe du backend Python au lieu de passer par les API Routes
+const BACKEND_URL = 'http://localhost:8000';
+const API_BASE_URL = '/api'; // Garde cette constante pour les appels qui ne sont pas redirigés
 
 /**
  * Interface pour les résultats d'extraction des placeholders
@@ -60,12 +62,13 @@ export const extractPlaceholders = async (file: File): Promise<PlaceholderResult
             body: formData,
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Erreur ${response.status}: ${response.statusText}`);
+            throw new Error(result.error || `Erreur ${response.status}: ${response.statusText}`);
         }
 
-        return await response.json();
+        return result;
     } catch (error) {
         console.error('Erreur lors de l\'extraction des placeholders:', error);
         return {
@@ -96,23 +99,39 @@ export const extractTextFromPdf = async (file: File): Promise<PdfTextExtractionR
     formData.append('file', file);
 
     try {
-        const response = await fetch(`${API_BASE_URL}/extract-text-from-pdf`, {
+        console.log("Envoi du PDF pour extraction:", file.name, "taille:", file.size);
+
+        // Appel direct au backend Python sans passer par l'API route
+        const response = await fetch(`${BACKEND_URL}/extract-pdf-text/`, {
             method: 'POST',
             body: formData,
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Erreur ${response.status}: ${response.statusText}`);
+        console.log("Réponse reçue, statut:", response.status);
+
+        let responseData;
+        try {
+            responseData = await response.json();
+            console.log("Données de réponse:", responseData);
+        } catch (parseError) {
+            console.error("Erreur lors du parsing JSON:", parseError);
+            // Si la réponse n'est pas du JSON valide, essayons de récupérer le texte brut
+            const textResponse = await response.text();
+            console.log("Réponse texte brut:", textResponse.substring(0, 200) + "...");
+            throw new Error(`Erreur lors du parsing JSON: ${textResponse.substring(0, 100)}`);
         }
 
-        const result = await response.json();
+        if (!response.ok) {
+            console.error("Réponse serveur non OK:", response.status, response.statusText);
+            throw new Error(responseData.error || `Erreur ${response.status}: ${response.statusText}`);
+        }
+
         return {
             success: true,
-            text: result.text
+            text: responseData.text
         };
     } catch (error) {
-        console.error('Erreur lors de l\'extraction du texte:', error);
+        console.error('Erreur complète lors de l\'extraction du texte:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Erreur inconnue'
@@ -142,12 +161,12 @@ export const processTextForV3 = async (
             }),
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Erreur ${response.status}: ${response.statusText}`);
+            throw new Error(result.error || `Erreur ${response.status}: ${response.statusText}`);
         }
 
-        const result = await response.json();
         return {
             success: true,
             data: result.data
@@ -185,12 +204,13 @@ export const analyzeTemplateAdvanced = async (file: File): Promise<PlaceholderRe
             body: formData,
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Erreur ${response.status}: ${response.statusText}`);
+            throw new Error(result.error || `Erreur ${response.status}: ${response.statusText}`);
         }
 
-        return await response.json();
+        return result;
     } catch (error) {
         console.error('Erreur lors de l\'analyse avancée du template:', error);
         return {
