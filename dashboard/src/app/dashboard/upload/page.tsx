@@ -40,8 +40,7 @@ export default function UploadPage() {
                     const missing = getMissingFields(v3Document.data).map((field, index) => ({
                         id: `m${index + 1}`,
                         field: field.field,
-                        message: 'Valeur non renseignée',
-                        severity: field.severity
+                        message: 'Valeur non renseignée'
                     }));
 
                     setMissingFields(missing);
@@ -69,8 +68,7 @@ export default function UploadPage() {
             const missing = getMissingFields(data.v3Document.data).map((field, index) => ({
                 id: `m${index + 1}`,
                 field: field.field,
-                message: 'Valeur non renseignée',
-                severity: field.severity
+                message: 'Valeur non renseignée'
             }));
 
             setMissingFields(missing);
@@ -93,8 +91,7 @@ export default function UploadPage() {
         const missing = getMissingFields(newData).map((field, index) => ({
             id: `m${index + 1}`,
             field: field.field,
-            message: 'Valeur non renseignée',
-            severity: field.severity
+            message: 'Valeur non renseignée'
         }));
 
         setMissingFields(missing);
@@ -230,14 +227,6 @@ export default function UploadPage() {
                                                             <h4 className="font-medium text-gray-900 text-sm">{item.field}</h4>
                                                             <p className="text-gray-600 text-xs mt-0.5">{item.message}</p>
                                                         </div>
-                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.severity === 'high'
-                                                            ? 'bg-red-100 text-red-800'
-                                                            : item.severity === 'medium'
-                                                                ? 'bg-yellow-100 text-yellow-800'
-                                                                : 'bg-blue-100 text-blue-800'
-                                                            }`}>
-                                                            {item.severity === 'high' ? 'Élevée' : item.severity === 'medium' ? 'Moyenne' : 'Faible'}
-                                                        </span>
                                                     </div>
                                                 </div>
                                             ))}

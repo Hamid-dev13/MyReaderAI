@@ -1,4 +1,4 @@
-import { V3Data } from "@/lib/types/v3Types";
+import { V3Data, V3Document } from "@/lib/types/v3Types";
 
 // Client API pour communiquer avec les API Routes
 
@@ -9,10 +9,24 @@ interface ApiResponse<T> {
     error?: string;
 }
 
+// Interface pour les statistiques
+interface V3Stats {
+    files: {
+        processed: number;
+        pending: number;
+        error: number;
+    };
+    v3Documents: {
+        total: number;
+        completed: number;
+        inProgress: number;
+    };
+}
+
 // Client V3
 export const V3Client = {
     // Récupérer le document V3 le plus récent
-    getLatest: async (): Promise<ApiResponse<any>> => {
+    getLatest: async (): Promise<ApiResponse<V3Document>> => {
         try {
             const response = await fetch('/api/v3/latest');
             return await response.json();
@@ -26,7 +40,7 @@ export const V3Client = {
     },
 
     // Créer un nouveau document V3
-    create: async (data?: V3Data): Promise<ApiResponse<any>> => {
+    create: async (data?: V3Data): Promise<ApiResponse<V3Document>> => {
         try {
             const response = await fetch('/api/v3/create', {
                 method: 'POST',
@@ -46,7 +60,7 @@ export const V3Client = {
     },
 
     // Mettre à jour un document V3
-    update: async (id: string, data: V3Data): Promise<ApiResponse<any>> => {
+    update: async (id: string, data: V3Data): Promise<ApiResponse<V3Document>> => {
         try {
             const response = await fetch('/api/v3/update', {
                 method: 'PUT',
@@ -74,7 +88,7 @@ export const V3Client = {
             fileSize: number;
             status?: 'processed' | 'pending' | 'error';
         }
-    ): Promise<ApiResponse<any>> => {
+    ): Promise<ApiResponse<V3Document>> => {
         try {
             const response = await fetch('/api/v3/add-file', {
                 method: 'POST',
@@ -97,7 +111,7 @@ export const V3Client = {
     },
 
     // Obtenir les statistiques
-    getStats: async (): Promise<ApiResponse<any>> => {
+    getStats: async (): Promise<ApiResponse<V3Stats>> => {
         try {
             const response = await fetch('/api/v3/stats');
             return await response.json();

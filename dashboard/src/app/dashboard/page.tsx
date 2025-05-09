@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import CompletionGauge from '@/components/GaugeCompletion/CompletionGauge';
 import MissingInfoList from '@/components/MissingInfo/MissingInfoList';
 import { MissingInformation, V3Status } from '@/lib/types/interfaceTypes';
-import { V3Data, getMissingFields } from '@/lib/types/v3Types';
+import { V3Data, V3Document, getMissingFields, MissingV3Field } from '@/lib/types/v3Types';
 import { V3Client } from '@/services/apiClient';
 
 export default function Dashboard() {
@@ -28,28 +28,35 @@ export default function Dashboard() {
             setIsLoading(true);
             try {
                 // Récupérer le document V3 le plus récent
-                const v3Response = await V3Client.getLatest();
+                let v3Response = await V3Client.getLatest();
+
+                // Si aucun document n'existe, en créer un nouveau vide
+                if (!v3Response.success || !v3Response.data) {
+                    console.log("Aucun document V3 trouvé, création d'un document vide");
+                    v3Response = await V3Client.create();
+                }
 
                 if (v3Response.success && v3Response.data) {
                     const v3Doc = v3Response.data;
+                    const v3Data = v3Doc.data as V3Data;
 
                     // Mise à jour du statut V3
                     setV3Status({
                         completionPercentage: v3Doc.completionRate,
-                        lastUpdated: v3Doc.updatedAt,
-                        totalFields: Object.keys(v3Doc.data).length,
-                        completedFields: Object.values(v3Doc.data).filter((v: any) => v !== "").length
+                        lastUpdated: new Date(v3Doc.updatedAt).toISOString(),
+                        totalFields: Object.keys(v3Data).length,
+                        completedFields: Object.values(v3Data).filter((v: string) => v !== "").length
                     });
 
                     // Conversion des champs manquants au format MissingInformation
-                    const missingFields = getMissingFields(v3Doc.data).map((field, index) => ({
+                    const missingFields: MissingV3Field[] = getMissingFields(v3Data);
+                    const missingInfoItems: MissingInformation[] = missingFields.map((field, index) => ({
                         id: `m${index + 1}`,
                         field: field.field,
-                        message: "Valeur non renseignée dans le document source",
-                        severity: field.severity
+                        message: "Valeur non renseignée dans le document source"
                     }));
 
-                    setMissingInfo(missingFields);
+                    setMissingInfo(missingInfoItems);
                 }
 
                 // Charger les statistiques

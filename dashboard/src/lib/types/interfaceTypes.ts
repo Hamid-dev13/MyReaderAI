@@ -4,7 +4,6 @@ export interface MissingInformation {
     id: string;
     field: string;
     message: string;
-    severity: 'high' | 'medium' | 'low';
 }
 
 export interface V3Status {

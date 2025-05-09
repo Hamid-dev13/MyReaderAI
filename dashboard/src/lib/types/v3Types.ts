@@ -102,6 +102,11 @@ export interface UploadedFile {
     v3DocumentId?: string;
 }
 
+// Interface pour représenter un champ manquant du V3
+export interface MissingV3Field {
+    field: string;
+}
+
 // Fonction pour calculer le taux de complétion d'un document V3
 export function calculateCompletionRate(data: V3Data): number {
     // Nombre total de champs dans le modèle V3
@@ -115,37 +120,14 @@ export function calculateCompletionRate(data: V3Data): number {
 }
 
 // Fonction pour obtenir les champs manquants
-export function getMissingFields(data: V3Data): { field: string; severity: 'high' | 'medium' | 'low' }[] {
-    const missingFields: { field: string; severity: 'high' | 'medium' | 'low' }[] = [];
-
-    // Champs considérés comme haute priorité
-    const highPriorityFields = [
-        'nom_projet', 'nom_MO', 'date_création', 'nom_du_site', 'description_projet',
-        'présence_amiante_true', 'présence_amiante_false'
-    ];
-
-    // Champs considérés comme priorité moyenne
-    const mediumPriorityFields = [
-        'date_projet', 'Adresse_MO', 'nom_mission', 'NOM_MOE_mandataire',
-        'Adresse_moe_mandataire', 'nature_opération', 'nom_bâtiments'
-    ];
+export function getMissingFields(data: V3Data): MissingV3Field[] {
+    const missingFields: MissingV3Field[] = [];
 
     // Parcourir tous les champs et vérifier s'ils sont vides
     Object.entries(data).forEach(([key, value]) => {
         if (value === "") {
-            let severity: 'high' | 'medium' | 'low';
-
-            if (highPriorityFields.includes(key)) {
-                severity = 'high';
-            } else if (mediumPriorityFields.includes(key)) {
-                severity = 'medium';
-            } else {
-                severity = 'low';
-            }
-
             missingFields.push({
-                field: key.replace(/_/g, ' '),
-                severity
+                field: key.replace(/_/g, ' ')
             });
         }
     });
