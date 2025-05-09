@@ -1,6 +1,7 @@
 import re
 from docx import Document
 import os
+import requests  # Ajout de l'import requests
 
 def extract_placeholders_with_context(docx_path):
     """
@@ -168,23 +169,94 @@ def analyze_placeholder_types(placeholders_data):
         
     return placeholders_data
 
+# Nouvelle fonction pour envoyer les résultats à n8n
+def send_to_n8n(filename, results):
+    """
+    Envoie les résultats d'extraction à n8n via le webhook
+    
+    Args:
+        filename (str): Nom du fichier template
+        results (dict): Résultats de l'extraction
+        
+    Returns:
+        bool: True si l'envoi a réussi, False sinon
+    """
+    # URL du webhook n8n
+    webhook_url = "https://hamiddev13.app.n8n.cloud/webhook-test/raedificare-template"
+    
+    # Extraire juste les noms des placeholders pour simplifier
+    placeholders_list = [ph["placeholder"] for ph in results["unique_placeholders"]]
+    
+    # Structurer les données à envoyer
+    data = {
+        "filename": os.path.basename(filename),
+        "total_found": results["total_found"],
+        "unique_count": results["unique_count"],
+        "placeholders": placeholders_list,
+        # Vous pouvez ajouter d'autres informations si nécessaire
+        "sections_count": len(organize_placeholders_by_section(results)["sections"])
+    }
+    
+    try:
+        print(f"Envoi des données à n8n: {webhook_url}")
+        response = requests.post(
+            webhook_url,
+            json=data,
+            headers={"Content-Type": "application/json"}
+        )
+        
+        # Afficher les résultats
+        print(f"Statut de la réponse: {response.status_code}")
+        if response.text:
+            print(f"Contenu de la réponse: {response.text}")
+        
+        if response.status_code == 200:
+            print("✅ Envoi réussi ! Les données ont été transmises à n8n.")
+            return True
+        else:
+            print("❌ Problème lors de l'envoi. Vérifiez les logs n8n.")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Erreur lors de la connexion: {str(e)}")
+        return False
+
 # Test de la fonction
 if __name__ == "__main__":
-    # Remplacer par le chemin de votre template
-    template_path = "chemin/vers/votre/template.docx"
+    import sys
+    
+    # Vérifier si un chemin de fichier est fourni en argument
+    if len(sys.argv) > 1:
+        template_path = sys.argv[1]
+    else:
+        # Utiliser un chemin par défaut si aucun argument n'est fourni
+        template_path = "chemin/vers/votre/template.docx"
+        print(f"Aucun chemin spécifié, utilisation du chemin par défaut: {template_path}")
+        print("Usage: python extract_placeholders_advanced.py chemin/vers/template.docx")
+    
+    # Extraire les placeholders avec contexte
     result = extract_placeholders_with_context(template_path)
     
     if "error" in result:
         print(f"Erreur: {result['error']}")
-    else:
-        print(f"Nombre total de placeholders trouvés: {result['total_found']}")
-        print(f"Nombre de placeholders uniques: {result['unique_count']}")
-        
-        # Afficher les 3 premiers placeholders avec leur contexte
-        for i, ph in enumerate(result["unique_placeholders"][:3]):
-            print(f"\nPlaceholder {i+1}: ${{{ph['placeholder']}}}")
-            print(f"Nombre d'occurrences: {ph['occurrences']}")
-            print("Premier contexte:")
-            ctx = ph['contexts'][0]
-            print(f"  Section: {ctx['section']}")
-            print(f"  Texte: ...{ctx['context_before']}${{{ph['placeholder']}}}{ctx['context_after']}...")
+        sys.exit(1)
+    
+    # Analyser les types
+    result = analyze_placeholder_types(result)
+    
+    # Afficher les résultats
+    print(f"Nombre total de placeholders trouvés: {result['total_found']}")
+    print(f"Nombre de placeholders uniques: {result['unique_count']}")
+    
+    # Afficher les 3 premiers placeholders avec leur contexte
+    for i, ph in enumerate(result["unique_placeholders"][:3]):
+        print(f"\nPlaceholder {i+1}: ${{{ph['placeholder']}}}")
+        print(f"Type détecté: {ph['detected_type']}")
+        print(f"Nombre d'occurrences: {ph['occurrences']}")
+        print("Premier contexte:")
+        ctx = ph['contexts'][0]
+        print(f"  Section: {ctx['section']}")
+        print(f"  Texte: ...{ctx['context_before']}${{{ph['placeholder']}}}{ctx['context_after']}...")
+    
+    # Envoyer les résultats à n8n
+    send_to_n8n(template_path, result)
