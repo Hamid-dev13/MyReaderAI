@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
         const backendFormData = new FormData();
         backendFormData.append('file', file);
 
-        // Envoyer la requête au backend Python
-        const response = await fetch(`${BACKEND_URL}/extract-text-from-pdf/`, {
+        // Envoyer la requête au backend Python avec le bon endpoint
+        const response = await fetch(`${BACKEND_URL}/extract-pdf-text/`, {
             method: 'POST',
             body: backendFormData,
         });
@@ -42,9 +42,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Renvoyer les données du backend
+        // Renvoyer les données du backend avec adaptation du format si nécessaire
         const data = await response.json();
-        return NextResponse.json(data);
+
+        // Adapter le format si nécessaire pour maintenir la cohérence des API
+        return NextResponse.json({
+            success: data.success !== undefined ? data.success : true,
+            text: data.text,
+            error: data.error
+        });
     } catch (error) {
         console.error('Erreur lors de l\'extraction du texte PDF:', error);
         return NextResponse.json(

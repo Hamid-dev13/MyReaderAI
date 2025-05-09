@@ -8,6 +8,8 @@ from extract_placeholders_advanced import extract_placeholders_with_context, ana
 # Remplacer PyPDF2 par pdfminer.six
 from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
+from typing import Dict, Any, Optional
+from pydantic import BaseModel
 
 app = FastAPI(title="RAEDIFICARE Template API")
 
@@ -486,6 +488,85 @@ async def test_n8n_connection():
         return {
             "n8n_status": "error",
             "error": str(e)
+        }
+
+# MODÈLE PYDANTIC POUR LA REQUÊTE DE TRAITEMENT V3
+class ProcessTextForV3Request(BaseModel):
+    text: str
+    current_data: Optional[Dict[str, str]] = {}
+
+# NOUVEL ENDPOINT POUR TRAITER LE TEXTE ET EXTRAIRE LES DONNÉES V3
+@app.post("/process-text-for-v3/")
+async def process_text_for_v3(request: ProcessTextForV3Request):
+    """
+    Traite le texte extrait d'un PDF pour en extraire des données structurées pour le document V3
+    """
+    try:
+        text = request.text
+        current_data = request.current_data or {}
+        
+        if not text:
+            return {
+                "success": False,
+                "error": "Aucun texte fourni pour le traitement"
+            }
+        
+        # Dictionnaire pour stocker les données extraites
+        extracted_data = {}
+        
+        # Logique d'extraction simple pour les champs courants
+        # Ces règles d'extraction peuvent être améliorées selon les besoins
+        
+        # Analyse des coordonnées du chantier
+        if "Adresse" in text:
+            # Recherche de l'adresse après le mot "Adresse"
+            import re
+            address_match = re.search(r'Adresse[:\s]*([^\n]+)', text)
+            if address_match:
+                extracted_data["adresse_chantier"] = address_match.group(1).strip()
+        
+        # Analyse du code postal
+        postal_code_match = re.search(r'\b(\d{5})\b', text)
+        if postal_code_match:
+            extracted_data["code_postal"] = postal_code_match.group(1)
+        
+        # Analyse de la ville
+        if "Ville" in text:
+            city_match = re.search(r'Ville[:\s]*([^\n]+)', text)
+            if city_match:
+                extracted_data["ville"] = city_match.group(1).strip()
+        
+        # Analyse du maître d'ouvrage
+        if "Maître d'ouvrage" in text or "Maitre d'ouvrage" in text:
+            mo_match = re.search(r'Ma[îi]tre d\'ouvrage[:\s]*([^\n]+)', text)
+            if mo_match:
+                extracted_data["maitre_ouvrage"] = mo_match.group(1).strip()
+        
+        # Analyse de la référence du projet
+        if "Référence" in text:
+            ref_match = re.search(r'Référence[:\s]*([^\n]+)', text)
+            if ref_match:
+                extracted_data["reference_projet"] = ref_match.group(1).strip()
+        
+        # Analyse du type de bâtiment
+        batiment_types = ["Immeuble", "Maison", "Bureau", "Entrepôt", "Usine", "Commercial"]
+        for bt in batiment_types:
+            if bt in text:
+                extracted_data["type_batiment"] = bt
+                break
+        
+        # Fusionner avec les données actuelles (les nouvelles données ont priorité)
+        merged_data = {**current_data, **extracted_data}
+        
+        return {
+            "success": True,
+            "data": merged_data
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Erreur lors du traitement du texte pour V3: {str(e)}"
         }
 
 if __name__ == "__main__":

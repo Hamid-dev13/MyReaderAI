@@ -6,7 +6,7 @@ import Notification from '@/components/Layout/Notification';
 import { PlaceholderResult } from '@/services/externalApiService';
 import { V3Client } from '@/services/apiClient';
 import { V3Data, calculateCompletionRate, getMissingFields } from '@/lib/types/v3Types';
-import { MissingInformation } from '@/lib/data/mockData';
+import { MissingInformation } from '@/lib/types/interfaceTypes';
 
 export default function UploadPage() {
     const [isLoading, setIsLoading] = useState(false);

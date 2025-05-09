@@ -1,6 +1,6 @@
 'use client';
 
-import { MissingInformation } from '@/lib/data/mockData';
+import { MissingInformation } from '@/lib/types/interfaceTypes';
 
 interface MissingInfoListProps {
     data: MissingInformation[];

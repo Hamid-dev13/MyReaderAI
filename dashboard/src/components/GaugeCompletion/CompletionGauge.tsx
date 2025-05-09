@@ -1,6 +1,6 @@
 'use client';
 
-import { V3Status } from '@/lib/data/mockData';
+import { V3Status } from '@/lib/types/interfaceTypes';
 
 interface CompletionGaugeProps {
     data: V3Status;
@@ -42,12 +42,12 @@ export default function CompletionGauge({ data }: CompletionGaugeProps) {
                         className={`absolute inset-0 rounded-full ${getGaugeColor(completionPercentage)}`}
                         style={{
                             clipPath: `polygon(50% 50%, 50% 0%, ${completionPercentage <= 25
-                                    ? `${50 + 50 * Math.sin(completionPercentage / 25 * Math.PI / 2)}% ${50 - 50 * Math.cos(completionPercentage / 25 * Math.PI / 2)}%`
-                                    : completionPercentage <= 50
-                                        ? `100% 0%, 100% ${50 - 50 * Math.cos((completionPercentage - 25) / 25 * Math.PI / 2)}%`
-                                        : completionPercentage <= 75
-                                            ? `100% 0%, 100% 100%, ${50 + 50 * Math.cos((completionPercentage - 50) / 25 * Math.PI / 2)}% 100%`
-                                            : `100% 0%, 100% 100%, 0% 100%, 0% ${50 + 50 * Math.sin((completionPercentage - 75) / 25 * Math.PI / 2)}%`
+                                ? `${50 + 50 * Math.sin(completionPercentage / 25 * Math.PI / 2)}% ${50 - 50 * Math.cos(completionPercentage / 25 * Math.PI / 2)}%`
+                                : completionPercentage <= 50
+                                    ? `100% 0%, 100% ${50 - 50 * Math.cos((completionPercentage - 25) / 25 * Math.PI / 2)}%`
+                                    : completionPercentage <= 75
+                                        ? `100% 0%, 100% 100%, ${50 + 50 * Math.cos((completionPercentage - 50) / 25 * Math.PI / 2)}% 100%`
+                                        : `100% 0%, 100% 100%, 0% 100%, 0% ${50 + 50 * Math.sin((completionPercentage - 75) / 25 * Math.PI / 2)}%`
                                 })`
                         }}
                     ></div>

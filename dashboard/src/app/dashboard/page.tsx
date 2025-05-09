@@ -3,12 +3,17 @@
 import { useEffect, useState } from 'react';
 import CompletionGauge from '@/components/GaugeCompletion/CompletionGauge';
 import MissingInfoList from '@/components/MissingInfo/MissingInfoList';
-import { mockV3Status, MissingInformation } from '@/lib/data/mockData';
+import { MissingInformation, V3Status } from '@/lib/types/interfaceTypes';
 import { V3Data, getMissingFields } from '@/lib/types/v3Types';
 import { V3Client } from '@/services/apiClient';
 
 export default function Dashboard() {
-    const [v3Status, setV3Status] = useState(mockV3Status);
+    const [v3Status, setV3Status] = useState<V3Status>({
+        completionPercentage: 0,
+        lastUpdated: new Date().toISOString(),
+        totalFields: 0,
+        completedFields: 0
+    });
     const [missingInfo, setMissingInfo] = useState<MissingInformation[]>([]);
     const [documentCount, setDocumentCount] = useState({
         processed: 0,

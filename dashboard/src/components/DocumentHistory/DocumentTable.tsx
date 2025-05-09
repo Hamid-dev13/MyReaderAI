@@ -1,6 +1,6 @@
 'use client';
 
-import { Document } from '@/lib/data/mockData';
+import { Document } from '@/lib/types/interfaceTypes';
 import Link from 'next/link';
 
 interface DocumentTableProps {
