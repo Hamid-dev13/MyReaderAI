@@ -10,6 +10,8 @@ from pdfminer.high_level import extract_text
 from pdfminer.layout import LAParams
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
+import io
 
 app = FastAPI(title="RAEDIFICARE Template API")
 
@@ -248,217 +250,6 @@ async def extract_pdf_text(file: UploadFile = File(...)):
         if os.path.exists(temp_file_path):
             os.unlink(temp_file_path)
 
-# NOUVEL ENDPOINT POUR EXTRAIRE LES PLACEHOLDERS D'UN PDF
-@app.post("/extract-pdf-placeholders/")
-async def extract_pdf_placeholders(file: UploadFile = File(...)):
-    """
-    Extrait les placeholders ({{placeholder}}) d'un fichier PDF
-    """
-    # Vérifier que c'est bien un fichier PDF
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Le fichier doit être au format PDF")
-    
-    # Sauvegarder temporairement le fichier uploadé
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    temp_file_path = temp_file.name
-    
-    try:
-        # Écrire le contenu du fichier uploadé dans le fichier temporaire
-        content = await file.read()
-        with open(temp_file_path, "wb") as f:
-            f.write(content)
-        
-        # Extraire le texte du PDF
-        text_result = extract_text_from_pdf(temp_file_path)
-        
-        # Vérifier s'il y a eu une erreur
-        if "error" in text_result:
-            raise HTTPException(status_code=500, detail=text_result["error"])
-        
-        # Extraire les placeholders du texte
-        import re
-        pattern = r'\{\{([^{}]+)\}\}'
-        matches = re.findall(pattern, text_result["text"])
-        
-        # Nettoyer et dédupliquer tout en préservant l'ordre
-        clean_placeholders = [match.strip() for match in matches]
-        unique_placeholders = []
-        
-        for ph in clean_placeholders:
-            if ph not in unique_placeholders:
-                unique_placeholders.append(ph)
-        
-        return {
-            "filename": file.filename,
-            "total_pages": text_result["total_pages"],
-            "total_found": len(matches),
-            "unique_count": len(unique_placeholders),
-            "placeholders": unique_placeholders
-        }
-        
-    finally:
-        # Nettoyer le fichier temporaire
-        temp_file.close()
-        if os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-
-# NOUVEL ENDPOINT POUR ENVOYER LE TEXTE PDF À N8N
-@app.post("/send-pdf-text-to-n8n/")
-async def send_pdf_text_to_n8n(file: UploadFile = File(...)):
-    """
-    Extrait le texte d'un PDF et l'envoie à n8n
-    """
-    # Vérifier que c'est bien un fichier PDF
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Le fichier doit être au format PDF")
-    
-    # Sauvegarder temporairement le fichier uploadé
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    temp_file_path = temp_file.name
-    
-    try:
-        # Écrire le contenu du fichier uploadé dans le fichier temporaire
-        content = await file.read()
-        with open(temp_file_path, "wb") as f:
-            f.write(content)
-        
-        # Extraire le texte du PDF
-        text_result = extract_text_from_pdf(temp_file_path)
-        
-        # Vérifier s'il y a eu une erreur
-        if "error" in text_result:
-            raise HTTPException(status_code=500, detail=text_result["error"])
-        
-        # Préparer les données pour n8n
-        data_for_n8n = {
-            "filename": file.filename,
-            "file_type": "pdf",
-            "total_pages": text_result.get("total_pages", 0),
-            "extracted_text": text_result["text"]
-        }
-        
-        # Envoyer à n8n
-        try:
-            n8n_response = requests.post(
-                N8N_WEBHOOK_URL,
-                json=data_for_n8n,
-                headers={"Content-Type": "application/json"}
-            )
-            
-            if n8n_response.status_code != 200:
-                return {
-                    "n8n_status": "error",
-                    "status_code": n8n_response.status_code,
-                    "error": f"Erreur n8n: {n8n_response.text}",
-                    "pdf_text_data": data_for_n8n
-                }
-                
-            return {
-                "n8n_status": "success",
-                "status_code": n8n_response.status_code,
-                "n8n_response": n8n_response.text,
-                "pdf_text_data": data_for_n8n
-            }
-            
-        except Exception as e:
-            return {
-                "n8n_status": "error",
-                "error": f"Erreur de connexion à n8n: {str(e)}",
-                "pdf_text_data": data_for_n8n
-            }
-        
-    finally:
-        # Nettoyer le fichier temporaire
-        temp_file.close()
-        if os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-
-# NOUVEL ENDPOINT POUR ENVOYER LES PLACEHOLDERS D'UN PDF À N8N
-@app.post("/send-pdf-placeholders-to-n8n/")
-async def send_pdf_placeholders_to_n8n(file: UploadFile = File(...)):
-    """
-    Extrait les placeholders d'un PDF et les envoie à n8n
-    """
-    # Vérifier que c'est bien un fichier PDF
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Le fichier doit être au format PDF")
-    
-    # Sauvegarder temporairement le fichier uploadé
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    temp_file_path = temp_file.name
-    
-    try:
-        # Écrire le contenu du fichier uploadé dans le fichier temporaire
-        content = await file.read()
-        with open(temp_file_path, "wb") as f:
-            f.write(content)
-        
-        # Extraire le texte du PDF
-        text_result = extract_text_from_pdf(temp_file_path)
-        
-        # Vérifier s'il y a eu une erreur
-        if "error" in text_result:
-            raise HTTPException(status_code=500, detail=text_result["error"])
-        
-        # Extraire les placeholders du texte
-        import re
-        pattern = r'\{\{([^{}]+)\}\}'
-        matches = re.findall(pattern, text_result["text"])
-        
-        # Nettoyer et dédupliquer tout en préservant l'ordre
-        clean_placeholders = [match.strip() for match in matches]
-        unique_placeholders = []
-        
-        for ph in clean_placeholders:
-            if ph not in unique_placeholders:
-                unique_placeholders.append(ph)
-                
-        # Préparer les données pour n8n
-        data_for_n8n = {
-            "filename": file.filename,
-            "file_type": "pdf",
-            "total_pages": text_result.get("total_pages", 0),
-            "total_found": len(matches),
-            "unique_count": len(unique_placeholders),
-            "placeholders": unique_placeholders
-        }
-        
-        # Envoyer à n8n
-        try:
-            n8n_response = requests.post(
-                N8N_WEBHOOK_URL,
-                json=data_for_n8n,
-                headers={"Content-Type": "application/json"}
-            )
-            
-            if n8n_response.status_code != 200:
-                return {
-                    "n8n_status": "error",
-                    "status_code": n8n_response.status_code,
-                    "error": f"Erreur n8n: {n8n_response.text}",
-                    "placeholders_data": data_for_n8n
-                }
-                
-            return {
-                "n8n_status": "success",
-                "status_code": n8n_response.status_code,
-                "n8n_response": n8n_response.text,
-                "placeholders_data": data_for_n8n
-            }
-            
-        except Exception as e:
-            return {
-                "n8n_status": "error",
-                "error": f"Erreur de connexion à n8n: {str(e)}",
-                "placeholders_data": data_for_n8n
-            }
-        
-    finally:
-        # Nettoyer le fichier temporaire
-        temp_file.close()
-        if os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-
 # ENDPOINT POUR TESTER LA CONNEXION À N8N
 @app.post("/test-n8n-connection/")
 async def test_n8n_connection():
@@ -568,6 +359,60 @@ async def process_text_for_v3(request: ProcessTextForV3Request):
             "success": False,
             "error": f"Erreur lors du traitement du texte pour V3: {str(e)}"
         }
+
+@app.post("/generate-docx/")
+async def generate_docx(file: UploadFile = File(...), json_values: str = File(...)):
+    """
+    Génère un nouveau DOCX à partir d'un template et d'un JSON de valeurs, retourne le fichier en téléchargement.
+    """
+    import json
+    from docx import Document
+    import tempfile
+    try:
+        # Charger les valeurs du JSON
+        try:
+            values = json.loads(json_values)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"JSON invalide: {str(e)}")
+        # Sauvegarder temporairement le template
+        temp_template = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+        temp_template_path = temp_template.name
+        content = await file.read()
+        with open(temp_template_path, "wb") as f:
+            f.write(content)
+        # Créer le document de sortie en mémoire
+        doc = Document(temp_template_path)
+        for paragraph in doc.paragraphs:
+            for key, value in values.items():
+                placeholder = f"${{{key}}}"
+                if placeholder in paragraph.text:
+                    paragraph.text = paragraph.text.replace(placeholder, str(value))
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        for key, value in values.items():
+                            placeholder = f"${{{key}}}"
+                            if placeholder in paragraph.text:
+                                paragraph.text = paragraph.text.replace(placeholder, str(value))
+        # Sauvegarder dans un buffer mémoire
+        output_stream = io.BytesIO()
+        doc.save(output_stream)
+        output_stream.seek(0)
+        # Nettoyer le fichier temporaire
+        temp_template.close()
+        if os.path.exists(temp_template_path):
+            os.unlink(temp_template_path)
+        # Retourner le fichier en téléchargement
+        return StreamingResponse(
+            output_stream,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f"attachment; filename=generated_{file.filename}"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la génération du DOCX: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
