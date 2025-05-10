@@ -360,59 +360,173 @@ async def process_text_for_v3(request: ProcessTextForV3Request):
             "error": f"Erreur lors du traitement du texte pour V3: {str(e)}"
         }
 
+class DocxGenerationRequest(BaseModel):
+    values: Dict[str, str]
+
 @app.post("/generate-docx/")
 async def generate_docx(file: UploadFile = File(...), json_values: str = File(...)):
-    """
-    Génère un nouveau DOCX à partir d'un template et d'un JSON de valeurs, retourne le fichier en téléchargement.
-    """
     import json
     from docx import Document
     import tempfile
+    import re
+    from pathlib import Path
+    import io
+    import os
+
+    # Charger les valeurs du JSON
     try:
-        # Charger les valeurs du JSON
-        try:
-            values = json.loads(json_values)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"JSON invalide: {str(e)}")
-        # Sauvegarder temporairement le template
-        temp_template = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-        temp_template_path = temp_template.name
-        content = await file.read()
-        with open(temp_template_path, "wb") as f:
-            f.write(content)
-        # Créer le document de sortie en mémoire
-        doc = Document(temp_template_path)
-        for paragraph in doc.paragraphs:
-            for key, value in values.items():
-                placeholder = f"${{{key}}}"
-                if placeholder in paragraph.text:
-                    paragraph.text = paragraph.text.replace(placeholder, str(value))
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for paragraph in cell.paragraphs:
-                        for key, value in values.items():
-                            placeholder = f"${{{key}}}"
-                            if placeholder in paragraph.text:
-                                paragraph.text = paragraph.text.replace(placeholder, str(value))
-        # Sauvegarder dans un buffer mémoire
-        output_stream = io.BytesIO()
-        doc.save(output_stream)
-        output_stream.seek(0)
-        # Nettoyer le fichier temporaire
-        temp_template.close()
-        if os.path.exists(temp_template_path):
-            os.unlink(temp_template_path)
-        # Retourner le fichier en téléchargement
-        return StreamingResponse(
-            output_stream,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={
-                "Content-Disposition": f"attachment; filename=generated_{file.filename}"
-            }
-        )
+        data = json.loads(json_values)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la génération du DOCX: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"JSON invalide: {str(e)}")
+
+    # Logique de choix selon le booléen rapport_type
+    rapport_type = data.get("rapport_type", False)
+    if rapport_type is True:
+        values = {
+            "rapport_amiante_type_1": "Ces rapports ne font pas état de présence d'amiante dans les matériaux présents sur les emprises du présent diagnostic PEMD Ressources.",
+            "rapport_amiante_type_2": ""
+        }
+    else:
+        values = {
+            "rapport_amiante_type_1": "",
+            "rapport_amiante_type_2": "Ces rapports font état de présence d'amiante, mais hors des emprises concernées par le présent diagnostic PEMD Ressources : préciser les matériaux amiantés. Voir détails dans les conclusions des diagnostics en question"
+        }
+
+    # Logique de choix selon le booléen rapport_plomb_type
+    rapport_plomb_type = data.get("rapport_plomb_type", False)
+    if rapport_plomb_type is True:
+        values["rapport_plomb_type_true"] = "Ces rapports ne font pas état de présence de plomb dans les matériaux présents sur les emprises du présent diagnostic Ressources"
+        values["rapport_plomb_type_false"] = ""
+    else:
+        values["rapport_plomb_type_true"] = ""
+        values["rapport_plomb_type_false"] = "Ces rapports font état de présence de plomb, mais hors des emprises concernées par le présent diagnostic PEM-Ressources : préciser les matériaux plombés. Voir détails dans les conclusions des diagnostics en question."
+
+    # Logique de choix selon le booléen rapport_type_termites
+    rapport_type_termites = data.get("rapport_type_termites", False)
+    if rapport_type_termites is True:
+        values["rapport_type_termites_true"] = "Ces rapports ne font pas état de la présence de termites dans les matériaux présents sur les emprises projet."
+        values["rapport_type_termites_false"] = ""
+    else:
+        values["rapport_type_termites_true"] = ""
+        values["rapport_type_termites_false"] = "Ces rapports font état de présence de termites, mais hors des emprises concernées par le présent diagnostic Ressources : préciser les matériaux concernés. Voir détails dans les conclusions des diagnostics en question."
+
+    # Logique dynamique pour rapport enrobés/étanchéités
+    pollution_type = data.get("pollution_type", "aucun")
+    support_type = data.get("support_type", "enrobes")
+
+    # Construction du texte pour le support
+    if support_type == "enrobes":
+        support_txt = "enrobés"
+    elif support_type == "etancheites":
+        support_txt = "étanchéités"
+    elif support_type == "les_deux":
+        support_txt = "enrobés / étanchéités"
+    else:
+        support_txt = "enrobés"
+
+    # Construction du texte pour la pollution
+    if pollution_type == "aucun":
+        values["rapport_type_enrobes"] = (
+            f"Ces rapports ne font pas état de présence d'amiante ou HAP dans les {support_txt} présentes sur les emprises projet."
+        )
+    elif pollution_type == "amiante":
+        values["rapport_type_enrobes"] = (
+            f"Ces rapports font état de présence d'amiante dans les {support_txt} sur les emprises projet. Voir détails dans les conclusions des diagnostics en question."
+        )
+    elif pollution_type == "hap":
+        values["rapport_type_enrobes"] = (
+            f"Ces rapports font état de présence de pollution HAP dans les {support_txt} sur les emprises projet. Voir détails dans les conclusions des diagnostics en question."
+        )
+    elif pollution_type == "les_deux":
+        values["rapport_type_enrobes"] = (
+            f"Ces rapports font état de présence d'amiante et de pollution HAP dans les {support_txt} sur les emprises projet. Voir détails dans les conclusions des diagnostics en question."
+        )
+    else:
+        values["rapport_type_enrobes"] = ""
+
+    # Logique de choix pour diagnostic de pollution
+    diagnostic_de_pollution = data.get("diagnostic_de_pollution", False)
+    if diagnostic_de_pollution is True:
+        values["diagnostic_de_pollution_true"] = "Ces derniers ont été diagnostiqués dans le diagnostic de pollution."
+        values["diagnostic_de_pollution_false"] = ""
+    else:
+        values["diagnostic_de_pollution_true"] = ""
+        values["diagnostic_de_pollution_false"] = "Ces derniers n'ont pas été diagnostiqués dans le diagnostic de pollution."
+
+    # Logique de choix pour site occupé
+    site_occupé = data.get("site_occupé", False)
+    if site_occupé is True:
+        values["site_occupé_true"] = "occupé"
+        values["site_occupé_false"] = ""
+    else:
+        values["site_occupé_true"] = ""
+        values["site_occupé_false"] = "non occupé"
+
+    # Ajouter les autres champs éventuels du JSON
+    for k, v in data.items():
+        if k not in values:
+            values[k] = v
+
+    # Création d'un pattern regex unique pour tous les placeholders
+    placeholder_pattern = re.compile(r'\$\{(' + '|'.join(re.escape(k) for k in values.keys()) + r')\}')
+    
+    # Utilisation d'un context manager pour le fichier temporaire
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_template:
+        temp_template_path = temp_template.name
+        try:
+            # Écriture du contenu
+            content = await file.read()
+            with open(temp_template_path, "wb") as f:
+                f.write(content)
+            
+            # Création du document
+            doc = Document(temp_template_path)
+            
+            # Remplacement dans les paragraphes
+            for paragraph in doc.paragraphs:
+                if placeholder_pattern.search(paragraph.text):
+                    paragraph.text = placeholder_pattern.sub(
+                        lambda m: str(values.get(m.group(1), "")),
+                        paragraph.text
+                    )
+            
+            # Remplacement dans les tableaux
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for paragraph in cell.paragraphs:
+                            if placeholder_pattern.search(paragraph.text):
+                                paragraph.text = placeholder_pattern.sub(
+                                    lambda m: str(values.get(m.group(1), "")),
+                                    paragraph.text
+                                )
+            
+            # Sauvegarde dans un buffer mémoire
+            output_stream = io.BytesIO()
+            doc.save(output_stream)
+            output_stream.seek(0)
+            
+            # Nettoyage du nom de fichier
+            safe_filename = Path(file.filename).stem
+            safe_filename = re.sub(r'[^\w\-_.]', '_', safe_filename)
+            
+            return StreamingResponse(
+                output_stream,
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={
+                    "Content-Disposition": f"attachment; filename=generated_{safe_filename}.docx"
+                }
+            )
+            
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erreur lors de la génération du DOCX: {str(e)}"
+            )
+        finally:
+            # Nettoyage du fichier temporaire
+            if os.path.exists(temp_template_path):
+                os.unlink(temp_template_path)
 
 if __name__ == "__main__":
     import uvicorn
